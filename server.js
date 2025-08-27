@@ -7,7 +7,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // IMPORTANT: REPLACE with your actual Hugging Face API key
-const HF_API_KEY = process.env.HF_API_KEY || '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';
+const HF_API_KEY = process.env.HF_API_KEY ;
 const HF_API_URL = 'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1';
 
 // --- MIDDLEWARE ---
