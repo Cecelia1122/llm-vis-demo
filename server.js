@@ -7,8 +7,13 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // IMPORTANT: REPLACE with your actual Hugging Face API key
-const HF_API_KEY = process.env.HF_API_KEY ;
-const HF_API_URL = 'https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill';
+const HF_API_KEY = process.env.HF_API_KEY;
+// Updated to use a more reliable model that supports JSON generation
+const HF_API_URL = 'https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium';
+
+// Alternative models you can try:
+// const HF_API_URL = 'https://api-inference.huggingface.co/models/gpt2';
+// const HF_API_URL = 'https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill';
 
 // --- MIDDLEWARE ---
 app.use(express.json());
@@ -43,10 +48,75 @@ const visualizationSchema = {
     "required": ["geom", "title", "x", "y"]
 };
 
-// Helper function to call Hugging Face API
+// Helper function to call Hugging Face API with better error handling
 async function callHuggingFaceAPI(prompt) {
+    if (!HF_API_KEY) {
+        throw new Error('HF_API_KEY environment variable is not set');
+    }
+
     try {
+        console.log('Making request to Hugging Face API...');
+        
         const response = await fetch(HF_API_URL, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${HF_API_KEY}`,
+                'Content-Type': 'application/json',
+                'User-Agent': 'LLM-Vis-App/1.0'
+            },
+            body: JSON.stringify({
+                inputs: prompt,
+                parameters: {
+                    max_length: 150,
+                    temperature: 0.7,
+                    do_sample: true,
+                    return_full_text: false,
+                    pad_token_id: 50256
+                },
+                options: {
+                    wait_for_model: true,
+                    use_cache: false
+                }
+            })
+        });
+
+        console.log('Response status:', response.status);
+        console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('API Error Response:', errorText);
+            throw new Error(`Hugging Face API error: ${response.status} - ${errorText}`);
+        }
+
+        const result = await response.json();
+        console.log('API Response:', result);
+        
+        // Handle different response formats
+        if (Array.isArray(result) && result.length > 0) {
+            return result[0]?.generated_text || result[0]?.text || '';
+        } else if (result.generated_text) {
+            return result.generated_text;
+        } else {
+            return '';
+        }
+    } catch (error) {
+        console.error('Hugging Face API Error:', error);
+        throw error;
+    }
+}
+
+// Alternative function using a simpler model approach
+async function callHuggingFaceAPISimple(prompt) {
+    if (!HF_API_KEY) {
+        throw new Error('HF_API_KEY environment variable is not set');
+    }
+
+    // Use GPT-2 which is more reliable
+    const GPT2_URL = 'https://api-inference.huggingface.co/models/gpt2';
+    
+    try {
+        const response = await fetch(GPT2_URL, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${HF_API_KEY}`,
@@ -55,7 +125,7 @@ async function callHuggingFaceAPI(prompt) {
             body: JSON.stringify({
                 inputs: prompt,
                 parameters: {
-                    max_length: 200,
+                    max_length: 100,
                     temperature: 0.3,
                     return_full_text: false
                 }
@@ -63,73 +133,129 @@ async function callHuggingFaceAPI(prompt) {
         });
 
         if (!response.ok) {
-            throw new Error(`Hugging Face API error: ${response.status}`);
+            throw new Error(`API error: ${response.status}`);
         }
 
         const result = await response.json();
         return result[0]?.generated_text || '';
     } catch (error) {
-        console.error('Hugging Face API Error:', error);
+        console.error('GPT-2 API Error:', error);
         throw error;
     }
 }
 
-// Function to extract JSON from LLM response
+// Function to extract JSON from LLM response with better parsing
 function extractJSONFromResponse(text) {
-    // Try to find JSON pattern in the response
-    const jsonMatch = text.match(/\{[^}]*\}/);
-    if (jsonMatch) {
-        try {
-            return JSON.parse(jsonMatch[0]);
-        } catch (e) {
-            // If parsing fails, return null
+    console.log('Attempting to extract JSON from:', text);
+    
+    // Clean the text first
+    const cleanText = text.replace(/```json|```/g, '').trim();
+    
+    // Try multiple JSON extraction patterns
+    const patterns = [
+        /\{[^{}]*"geom"[^{}]*\}/g,  // Look for objects containing "geom"
+        /\{[^}]*\}/g,                // General JSON objects
+        /"geom":\s*"[^"]*"/g         // Just the geom field to build from
+    ];
+    
+    for (const pattern of patterns) {
+        const matches = cleanText.match(pattern);
+        if (matches) {
+            for (const match of matches) {
+                try {
+                    const parsed = JSON.parse(match);
+                    if (parsed.geom) {
+                        return parsed;
+                    }
+                } catch (e) {
+                    continue;
+                }
+            }
         }
     }
+    
     return null;
 }
 
-// Function to generate fallback visualization based on keywords
+// Enhanced fallback function with better keyword detection
 function generateFallbackVisualization(query) {
+    console.log('Generating fallback for query:', query);
+    
     const lowerQuery = query.toLowerCase();
     
     // Detect chart type from keywords
     let geom = 'bar'; // default
-    if (lowerQuery.includes('scatter') || lowerQuery.includes('correlation') || lowerQuery.includes('relationship')) {
+    if (lowerQuery.includes('scatter') || lowerQuery.includes('correlation') || 
+        lowerQuery.includes('relationship') || lowerQuery.includes('vs') ||
+        lowerQuery.includes('against')) {
         geom = 'point';
-    } else if (lowerQuery.includes('line') || lowerQuery.includes('trend') || lowerQuery.includes('time') || lowerQuery.includes('over time')) {
+    } else if (lowerQuery.includes('line') || lowerQuery.includes('trend') || 
+               lowerQuery.includes('time') || lowerQuery.includes('over time') ||
+               lowerQuery.includes('timeline') || lowerQuery.includes('progression')) {
         geom = 'line';
-    } else if (lowerQuery.includes('area') || lowerQuery.includes('filled')) {
+    } else if (lowerQuery.includes('area') || lowerQuery.includes('filled') ||
+               lowerQuery.includes('cumulative')) {
         geom = 'area';
     }
     
-    // Extract likely variable names
+    // Extract likely variable names with better detection
     let x = 'categories';
     let y = 'values';
     
-    if (lowerQuery.includes('price')) y = 'price';
-    if (lowerQuery.includes('sales')) y = 'sales';
-    if (lowerQuery.includes('revenue')) y = 'revenue';
-    if (lowerQuery.includes('count')) y = 'count';
-    if (lowerQuery.includes('amount')) y = 'amount';
+    // Y-axis detection
+    const yKeywords = {
+        'price': ['price', 'cost', 'expense'],
+        'sales': ['sales', 'revenue', 'earnings'],
+        'count': ['count', 'number', 'quantity'],
+        'amount': ['amount', 'total', 'sum'],
+        'rating': ['rating', 'score', 'quality'],
+        'traffic': ['traffic', 'visits', 'views'],
+        'growth': ['growth', 'increase', 'change']
+    };
     
-    if (lowerQuery.includes('month')) x = 'months';
-    if (lowerQuery.includes('year')) x = 'years';
-    if (lowerQuery.includes('region')) x = 'regions';
-    if (lowerQuery.includes('category')) x = 'categories';
-    if (lowerQuery.includes('product')) x = 'products';
+    for (const [key, keywords] of Object.entries(yKeywords)) {
+        if (keywords.some(keyword => lowerQuery.includes(keyword))) {
+            y = key;
+            break;
+        }
+    }
     
-    // Generate title
-    const title = query.charAt(0).toUpperCase() + query.slice(1);
+    // X-axis detection
+    const xKeywords = {
+        'months': ['month', 'monthly', 'jan', 'feb', 'mar'],
+        'years': ['year', 'yearly', 'annual'],
+        'regions': ['region', 'location', 'area', 'city'],
+        'categories': ['category', 'type', 'kind'],
+        'products': ['product', 'item', 'goods'],
+        'time': ['time', 'period', 'date']
+    };
+    
+    for (const [key, keywords] of Object.entries(xKeywords)) {
+        if (keywords.some(keyword => lowerQuery.includes(keyword))) {
+            x = key;
+            break;
+        }
+    }
+    
+    // Generate a meaningful title
+    let title = query.charAt(0).toUpperCase() + query.slice(1);
+    if (title.length > 50) {
+        title = title.substring(0, 47) + '...';
+    }
+    
+    // Remove common prefixes for cleaner titles
+    title = title.replace(/^(show|create|display|generate)\s+/i, '');
+    title = title.replace(/^(a|an|the)\s+/i, '');
     
     return {
         geom: geom,
-        title: title.length > 50 ? title.substring(0, 47) + '...' : title,
+        title: title || 'Generated Visualization',
         x: x,
         y: y
     };
 }
 
-// Main API endpoint
+// Main API endpoint with improved error handling
 app.post('/generate-visualization', async (req, res) => {
     const userQuery = req.body.query;
 
@@ -137,69 +263,115 @@ app.post('/generate-visualization', async (req, res) => {
         return res.status(400).json({ error: 'Query is required.' });
     }
 
+    console.log("Processing query:", userQuery);
+    
+    // Check if API key is available
+    if (!HF_API_KEY) {
+        console.log("No HF_API_KEY found, using fallback only");
+        const fallback = generateFallbackVisualization(userQuery);
+        return res.json(fallback);
+    }
+
     try {
-        console.log("Processing query:", userQuery);
-        
-        // Create a structured prompt for the LLM
-        const prompt = `Convert this visualization request to JSON format:
-Query: "${userQuery}"
+        // Create a more structured prompt for better JSON generation
+        const prompt = `Task: Convert visualization request to JSON.
 
-Return a JSON object with these fields:
-- geom: chart type ("point", "line", "bar", or "area")  
-- title: descriptive chart title
-- x: x-axis variable name
-- y: y-axis variable name
+Request: "${userQuery}"
 
-JSON:`;
+Required JSON format:
+{
+  "geom": "point|line|bar|area",
+  "title": "Chart Title",
+  "x": "x_axis_variable", 
+  "y": "y_axis_variable"
+}
 
-        let vizSpec;
+JSON response:`;
+
+        let vizSpec = null;
         
         try {
-            // Try to get response from Hugging Face
-            const llmResponse = await callHuggingFaceAPI(prompt);
+            // Try primary API call
+            const llmResponse = await callHuggingFaceAPISimple(prompt);
             console.log("LLM Response:", llmResponse);
             
-            // Try to extract JSON from the response
-            vizSpec = extractJSONFromResponse(llmResponse);
+            if (llmResponse) {
+                vizSpec = extractJSONFromResponse(llmResponse);
+            }
             
             if (!vizSpec) {
-                console.log("Could not extract JSON from LLM, using fallback");
-                vizSpec = generateFallbackVisualization(userQuery);
+                console.log("Could not extract valid JSON from LLM response");
             }
         } catch (error) {
-            console.log("LLM call failed, using fallback:", error.message);
+            console.log("LLM API call failed:", error.message);
+        }
+        
+        // Use fallback if LLM didn't work
+        if (!vizSpec) {
+            console.log("Using fallback visualization generation");
             vizSpec = generateFallbackVisualization(userQuery);
         }
         
-        // Validate the generated specification
-        if (!vizSpec.geom || !['point', 'line', 'bar', 'area'].includes(vizSpec.geom)) {
-            vizSpec.geom = 'bar';
-        }
-        if (!vizSpec.title) {
-            vizSpec.title = 'Generated Visualization';
-        }
-        if (!vizSpec.x) {
-            vizSpec.x = 'categories';
-        }
-        if (!vizSpec.y) {
-            vizSpec.y = 'values';
-        }
+        // Validate and clean the specification
+        vizSpec = validateAndCleanSpec(vizSpec);
 
         console.log("Final specification:", vizSpec);
         res.json(vizSpec);
 
     } catch (error) {
-        console.error("Error generating visualization:", error);
+        console.error("Error in visualization generation:", error);
         
-        // Return fallback even on complete failure
+        // Always return a valid fallback
         const fallback = generateFallbackVisualization(userQuery);
         res.json(fallback);
     }
 });
 
-// Health check endpoint
+// Function to validate and clean the specification
+function validateAndCleanSpec(spec) {
+    const validGeoms = ['point', 'line', 'bar', 'area'];
+    
+    return {
+        geom: validGeoms.includes(spec.geom) ? spec.geom : 'bar',
+        title: (spec.title && typeof spec.title === 'string') ? 
+               spec.title.substring(0, 100) : 'Generated Visualization',
+        x: (spec.x && typeof spec.x === 'string') ? 
+           spec.x.substring(0, 50) : 'categories',
+        y: (spec.y && typeof spec.y === 'string') ? 
+           spec.y.substring(0, 50) : 'values'
+    };
+}
+
+// Health check endpoint with more details
 app.get('/health', (req, res) => {
-    res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+    res.json({ 
+        status: 'healthy', 
+        timestamp: new Date().toISOString(),
+        hasApiKey: !!HF_API_KEY,
+        apiKeyLength: HF_API_KEY ? HF_API_KEY.length : 0
+    });
+});
+
+// API key test endpoint (for debugging)
+app.get('/test-api', async (req, res) => {
+    if (!HF_API_KEY) {
+        return res.json({ error: 'No API key configured' });
+    }
+    
+    try {
+        const testResponse = await callHuggingFaceAPISimple('Hello world');
+        res.json({ 
+            success: true, 
+            response: testResponse,
+            apiKeyStatus: 'working'
+        });
+    } catch (error) {
+        res.json({ 
+            success: false, 
+            error: error.message,
+            apiKeyStatus: 'failed'
+        });
+    }
 });
 
 // Root endpoint to serve the main page
@@ -210,5 +382,6 @@ app.get('/', (req, res) => {
 // --- START THE SERVER ---
 app.listen(port, () => {
     console.log(`Server is running at http://localhost:${port}`);
+    console.log(`HF API Key configured: ${!!HF_API_KEY}`);
     console.log(`Using Hugging Face API for LLM inference`);
 });
