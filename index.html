@@ -348,9 +348,10 @@
                 <div class="info-section">
                     <h3>⚙️ Technical Approach</h3>
                     <p style="font-size: 0.9rem; line-height: 1.5; color: #555;">
-                        This system uses <strong>Hugging Face's free API</strong> with JSON schema validation 
-                        to constrain LLM outputs, ensuring reliable visualization generation following the 
-                        Grammar of Graphics principles.
+                        This system uses a <strong>heuristic-based natural language parser</strong> built in Node.js. 
+                         It analyzes the user's query to generate a valid JSON specification, ensuring 
+                         reliable visualization generation following the Grammar of Graphics principles.
+    </p>
                     </p>
                 </div>
             </div>
@@ -371,10 +372,10 @@
         <div class="footer">
             <p>
                 🔬 Inspired by: <em>"A Concept for Integrating an LLM-Based Natural Language Interface for Visualizations Grammars"</em><br>
-                by Jobst et al. | Built with ❤️ using Hugging Face API (Free) + Chart.js
+                by Jobst et al. | Built with ❤️ using Node.js + Chart.js
             </p>
             <p style="margin-top: 10px;">
-                <a href="https://github.com/huggingface" target="_blank">Hugging Face</a> • 
+                <a href="https://nodejs.org/" target="_blank">Node.js</a> • 
                 <a href="https://www.chartjs.org/" target="_blank">Chart.js</a> • 
                 <a href="#" onclick="showTechnicalDetails()">Technical Details</a>
             </p>
@@ -390,7 +391,7 @@
             alert(`Technical Implementation:
             
 🔧 Backend: Node.js + Express
-🤖 LLM: Hugging Face Transformers (Free API)
+🧠 Parsing: Heuristic-based natural language parser
 📊 Visualization: Chart.js
 📋 Schema Validation: JSON Schema constraints
 🎨 Frontend: Vanilla JavaScript + CSS Grid
