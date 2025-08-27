@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Visualization Interface - Grammar-Based Approach</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+        
+        .header .subtitle {
+            font-size: 1.2rem;
+            color: #7f8c8d;
+            margin-bottom: 15px;
+        }
+        
+        .header .description {
+            font-size: 1rem;
+            color: #555;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .input-panel {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            height: fit-content;
+        }
+        
+        .visualization-panel {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            min-height: 600px;
+        }
+        
+        .section-title {
+            font-size: 1.4rem;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        
+        #userInput {
+            width: 100%;
+            font-size: 1rem;
+            padding: 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            resize: vertical;
+            min-height: 100px;
+            font-family: inherit;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        
+        #userInput:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+        
+        #generateButton {
+            width: 100%;
+            font-size: 1.1rem;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+        
+        #generateButton:hover:not(:disabled) {
+            background: linear-gradient(135deg, #2980b9, #1f4e79);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+        }
+        
+        #generateButton:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .examples-section {
+            margin-top: 25px;
+        }
+        
+        .examples-section p {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+        
+        .example-button {
+            display: block;
+            width: 100%;
+            margin: 8px 0;
+            padding: 12px 15px;
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: left;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            color: #495057;
+        }
+        
+        .example-button:hover {
+            background: #e3f2fd;
+            border-color: #3498db;
+            color: #2980b9;
+        }
+        
+        #chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 20px;
+            border: 2px solid #f1f2f6;
+            border-radius: 10px;
+            background: white;
+        }
+        
+        #myChart {
+            border-radius: 8px;
+        }
+        
+        .info-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            border-left: 4px solid #3498db;
+        }
+        
+        .info-section h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+        
+        .info-section ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .info-section li {
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .info-section li:last-child {
+            border-bottom: none;
+        }
+        
+        .grammar-item {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .grammar-desc {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+            text-align: right;
+            max-width: 60%;
+        }
+        
+        #spec-display {
+            margin-top: 20px;
+            padding: 20px;
+            background: #2c3e50;
+            color: #ecf0f1;
+            border-radius: 10px;
+            font-family: 'Monaco', 'Consolas', 'Courier New', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+        }
+        
+        #spec-display pre {
+            margin: 10px 0 0 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #27ae60;
+            margin-right: 8px;
+        }
+        
+        .footer {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            margin-top: 20px;
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+        
+        .footer a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .container {
+                padding: 15px;
+            }
+            
+            .input-panel, .visualization-panel {
+                padding: 20px;
+            }
+        }
+        
+        /* Animation for loading state */
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .loading {
+            animation: pulse 1.5s infinite;
+        }
+    </style>
+    <!-- Import Chart.js library -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header Section -->
+        <div class="header">
+            <h1>🎯 LLM Visualization Interface</h1>
+            <div class="subtitle">Grammar-Based Natural Language to Visualization</div>
+            <div class="description">
+                <span class="status-indicator"></span>
+                This demo implements the approach from Jobst et al.'s research on LLM-based visualization interfaces. 
+                It uses JSON schema constraints to balance flexibility and reliability in visualization generation.
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Input Panel -->
+            <div class="input-panel">
+                <h2 class="section-title">📝 Natural Language Query</h2>
+                
+                <textarea 
+                    id="userInput" 
+                    placeholder="Describe the visualization you want to create...&#10;&#10;Examples:&#10;• Show a bar chart of monthly sales&#10;• Create a line chart of website traffic over time&#10;• Display a scatter plot of price vs quality"
+                ></textarea>
+                
+                <button id="generateButton">Generate Visualization</button>
+                
+                <!-- Grammar Information -->
+                <div class="info-section">
+                    <h3>🔧 Available Grammar Elements</h3>
+                    <ul>
+                        <li>
+                            <span class="grammar-item">point</span>
+                            <span class="grammar-desc">Scatter plots for correlations</span>
+                        </li>
+                        <li>
+                            <span class="grammar-item">line</span>
+                            <span class="grammar-desc">Time series and trends</span>
+                        </li>
+                        <li>
+                            <span class="grammar-item">bar</span>
+                            <span class="grammar-desc">Categorical comparisons</span>
+                        </li>
+                        <li>
+                            <span class="grammar-item">area</span>
+                            <span class="grammar-desc">Cumulative distributions</span>
+                        </li>
+                    </ul>
+                </div>
+                
+                <!-- Technical Details -->
+                <div class="info-section">
+                    <h3>⚙️ Technical Approach</h3>
+                    <p style="font-size: 0.9rem; line-height: 1.5; color: #555;">
+                        This system uses <strong>Hugging Face's free API</strong> with JSON schema validation 
+                        to constrain LLM outputs, ensuring reliable visualization generation following the 
+                        Grammar of Graphics principles.
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Visualization Panel -->
+            <div class="visualization-panel">
+                <h2 class="section-title">📊 Generated Visualization</h2>
+                
+                <div id="chart-container">
+                    <canvas id="myChart"></canvas>
+                </div>
+                
+                <!-- This div will be populated by JavaScript to show examples and spec -->
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="footer">
+            <p>
+                🔬 Inspired by: <em>"A Concept for Integrating an LLM-Based Natural Language Interface for Visualizations Grammars"</em><br>
+                by Jobst et al. | Built with ❤️ using Hugging Face API (Free) + Chart.js
+            </p>
+            <p style="margin-top: 10px;">
+                <a href="https://github.com/huggingface" target="_blank">Hugging Face</a> • 
+                <a href="https://www.chartjs.org/" target="_blank">Chart.js</a> • 
+                <a href="#" onclick="showTechnicalDetails()">Technical Details</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- Load our main JavaScript -->
+    <script src="main.js"></script>
+    
+    <script>
+        // Additional helper functions
+        function showTechnicalDetails() {
+            alert(`Technical Implementation:
+            
+🔧 Backend: Node.js + Express
+🤖 LLM: Hugging Face Transformers (Free API)
+📊 Visualization: Chart.js
+📋 Schema Validation: JSON Schema constraints
+🎨 Frontend: Vanilla JavaScript + CSS Grid
+
+This approach follows the semantic separation of concerns described in the research paper, with robust fallback mechanisms for reliable visualization generation.`);
+        }
+        
+        // Add some initial guidance
+        window.addEventListener('load', () => {
+            const container = document.getElementById('chart-container');
+            if (!container.querySelector('canvas').getContext('2d').canvas.width) {
+                container.innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #7f8c8d; flex-direction: column;">
+                        <div style="font-size: 3rem; margin-bottom: 20px;">📈</div>
+                        <div style="font-size: 1.2rem; margin-bottom: 10px;">Ready to Generate Visualizations</div>
+                        <div style="font-size: 0.9rem; text-align: center; max-width: 300px;">
+                            Enter a natural language query on the left, or try one of the example queries that will appear below the input field.
+                        </div>
+                    </div>
+                `;
+            }
+        });
+    </script>
+</body>
+</html>
