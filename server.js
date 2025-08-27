@@ -8,7 +8,7 @@ const port = process.env.PORT || 3000;
 
 // IMPORTANT: REPLACE with your actual Hugging Face API key
 const HF_API_KEY = process.env.HF_API_KEY ;
-const HF_API_URL = 'https://api-inference.huggingface.co/models/gpt2';
+const HF_API_URL = 'https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill';
 
 // --- MIDDLEWARE ---
 app.use(express.json());
