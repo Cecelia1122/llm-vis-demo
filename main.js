@@ -4,6 +4,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const ctx = document.getElementById('myChart').getContext('2d');
     let myChart;
 
+    // Determine the base URL for API calls
+    const getBaseURL = () => {
+        // If we're on localhost, use relative paths
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            return '';
+        }
+        // For production (Render), use the full URL
+        return window.location.origin;
+    };
+
     // Example queries for user inspiration
     const exampleQueries = [
         "Show a bar chart of monthly sales",
@@ -75,17 +85,36 @@ document.addEventListener('DOMContentLoaded', () => {
         // UI Feedback
         generateButton.textContent = 'Generating...';
         generateButton.disabled = true;
+        generateButton.classList.add('loading');
 
         try {
-            const response = await fetch('/generate-visualization', {
+            const baseURL = getBaseURL();
+            const url = `${baseURL}/generate-visualization`;
+            
+            console.log('Making request to:', url);
+            
+            const response = await fetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
                 body: JSON.stringify({ query: query })
             });
 
+            console.log('Response status:', response.status);
+            console.log('Response headers:', response.headers);
+
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || `Server error: ${response.status}`);
+                let errorMessage = `Server error: ${response.status}`;
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.error || errorMessage;
+                } catch (e) {
+                    // If we can't parse the error response, use the status
+                    errorMessage = `Server error: ${response.status} ${response.statusText}`;
+                }
+                throw new Error(errorMessage);
             }
 
             const spec = await response.json();
@@ -94,10 +123,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (error) {
             console.error("Error:", error);
-            alert(`Failed to generate chart: ${error.message}`);
+            
+            // Provide more detailed error information
+            if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                alert(`Network error: Unable to connect to the server. Please check your connection and try again.`);
+            } else {
+                alert(`Failed to generate chart: ${error.message}`);
+            }
         } finally {
-            generateButton.textContent = 'Generate Chart';
+            generateButton.textContent = 'Generate Visualization';
             generateButton.disabled = false;
+            generateButton.classList.remove('loading');
         }
     }
 
