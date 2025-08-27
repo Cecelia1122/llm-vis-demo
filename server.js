@@ -8,7 +8,7 @@ const port = process.env.PORT || 3000;
 
 // IMPORTANT: REPLACE with your actual Hugging Face API key
 const HF_API_KEY = process.env.HF_API_KEY ;
-const HF_API_URL = 'https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium';
+const HF_API_URL = 'https://api-inference.huggingface.co/models/gpt2';
 
 // --- MIDDLEWARE ---
 app.use(express.json());
