@@ -353,23 +353,39 @@ app.get('/health', (req, res) => {
 });
 
 // API key test endpoint (for debugging)
+// Replace the entire app.get('/test-api', ...) block with this one
 app.get('/test-api', async (req, res) => {
+    console.log('--- RUNNING NEW API DEBUG TEST (Sentence Similarity) ---');
     if (!HF_API_KEY) {
-        return res.json({ error: 'No API key configured' });
+        return res.status(500).json({ error: 'No API key configured' });
     }
-    
+
     try {
-        const testResponse = await callHuggingFaceAPISimple('Hello world');
-        res.json({ 
-            success: true, 
-            response: testResponse,
-            apiKeyStatus: 'working'
+        const API_URL = 'https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2';
+        
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${HF_API_KEY}` },
+            body: JSON.stringify({ inputs: ["This is a test sentence."] }),
         });
+
+        if (!response.ok) {
+            throw new Error(`API error: ${response.status} - ${await response.text()}`);
+        }
+
+        const result = await response.json();
+        res.json({
+            success: true,
+            message: "Successfully connected to Hugging Face API with Sentence Similarity model.",
+            model: "sentence-transformers/all-MiniLM-L6-v2",
+            response_type: typeof result
+        });
+
     } catch (error) {
-        res.json({ 
-            success: false, 
-            error: error.message,
-            apiKeyStatus: 'failed'
+        res.status(500).json({
+            success: false,
+            message: "Failed to connect to Hugging Face API.",
+            error: error.message
         });
     }
 });
