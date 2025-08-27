@@ -112,7 +112,6 @@ async function callHuggingFaceAPISimple(prompt) {
         throw new Error('HF_API_KEY environment variable is not set');
     }
 
-    // Use GPT-2 which is more reliable
     const GPT2_URL = 'https://api-inference.huggingface.co/models/gpt2';
     
     try {
@@ -128,12 +127,18 @@ async function callHuggingFaceAPISimple(prompt) {
                     max_length: 100,
                     temperature: 0.3,
                     return_full_text: false
+                },
+                // --- ADD THIS OBJECT ---
+                options: {
+                    wait_for_model: true
                 }
+                // -----------------------
             })
         });
 
         if (!response.ok) {
-            throw new Error(`API error: ${response.status}`);
+            const errorText = await response.text();
+            throw new Error(`API error: ${response.status} - ${errorText}`);
         }
 
         const result = await response.json();
@@ -365,7 +370,8 @@ app.get('/test-api', async (req, res) => {
         
         const response = await fetch(API_URL, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${HF_API_KEY}` },
+            headers: { 'Authorization': `Bearer ${HF_API_KEY}`,
+                         'Content-Type': 'application/json' },
             body: JSON.stringify({ inputs: ["This is a test sentence."] }),
         });
 
