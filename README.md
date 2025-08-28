@@ -37,7 +37,7 @@ The goal of this project was to explore the practical challenges of building a r
 
 2.  **Clone the Repository:**
     ```bash
-    git clone https://github.com/Cecelia/llm-vis-project.git
+    git clone https://github.com/Cecelia1122/llm-vis-project.git
     cd your-repo-name
     ```
 
